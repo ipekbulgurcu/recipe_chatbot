@@ -2,26 +2,24 @@ import os
 import streamlit as st
 import textwrap
 
-# Gerekli Temel Importlar
+# ZİNCİRSİZ RAG İÇİN GEREKLİ MİNİMUM IMPORTLAR
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import TextLoader 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-# --- 1. Yardımcı Fonksiyon: RAG Çekirdeği (Zincirsiz) ---
+# --- 1. Yardımcı Fonksiyon: RAG Çekirdeği (Zincirsiz - Önceki Blok) ---
 @st.cache_resource
 def setup_rag_core():
-    # API Anahtar Kontrolü
+    # ... Bu fonksiyonun içi değişmeyecek, önceki mesajdaki gibi kalacak ...
     if "GEMINI_API_KEY" not in os.environ:
         st.error("❌ HATA: GEMINI_API_KEY ayarlanmadı. Lütfen Secrets kısmını kontrol edin.")
         return None, None
 
-    # Modelleri başlat
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
     embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004")
     
-    # Veri Yükleme ve Vektör Veritabanı
     file_path = "3000 Yemek Tarifi.txt"
     try:
         loader = TextLoader(file_path, encoding='utf-8')
@@ -34,7 +32,6 @@ def setup_rag_core():
         )
         chunks = text_splitter.split_documents(documents)
 
-        # ChromaDB'yi oluştur
         vector_store = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings
@@ -42,23 +39,15 @@ def setup_rag_core():
         retriever = vector_store.as_retriever(search_kwargs={"k": 3})
         
         return llm, retriever
-
-    except FileNotFoundError:
-        st.error(f"❌ HATA: '{file_path}' dosyası bulunamadı.")
-        return None, None
     except Exception as e:
         st.error(f"❌ HATA: Veri altyapısı kurulurken sorun oluştu: {e}")
         return None, None
 
 # --- 2. Cevap Üretim Fonksiyonu (Generation) ---
 def generate_response(llm, retriever, prompt):
-    # 1. Retrieval (Alım): İlgili dokümanları çek
     retrieved_docs = retriever.invoke(prompt)
-    
-    # Doküman içeriğini birleştir
     context = "\n\n".join(doc.page_content for doc in retrieved_docs)
 
-    # 2. Generation (Üretim): Prompt'u oluştur
     system_prompt_template = textwrap.dedent("""
         Sen harika bir 3000 Yemek Tarifleri Asistanısın. Yalnızca aşağıdaki 'context' 
         içindeki bilgilere dayanarak kullanıcının tarif ve malzeme sorularını Türkçe yanıtla. 
@@ -69,10 +58,8 @@ def generate_response(llm, retriever, prompt):
         {context}
     """)
     
-    # Gemini modeline gönderilecek nihai prompt
     final_prompt = system_prompt_template.format(context=context) + f"\n\nKullanıcı Sorgusu: {prompt}"
 
-    # 3. Modelden cevabı al
     try:
         response = llm.invoke(final_prompt)
         return response.content
