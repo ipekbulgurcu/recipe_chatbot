@@ -1,37 +1,32 @@
 import os
 import streamlit as st
+import textwrap
 
-# LangChain Çekirdek Bileşenleri
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+# Gerekli Temel Importlar
 from langchain_core.prompts import ChatPromptTemplate
-# from langchain_core.documents import Document # Gerekli değil, Document Loader halleder
-
-# Google Modelleri
+from langchain_community.document_loaders import TextLoader 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-# Topluluk Bileşenleri
-from langchain_community.document_loaders import TextLoader 
-from langchain_community.vectorstores import Chroma
-
-# --- 1. Yardımcı Fonksiyon: RAG Zincirini Başlatma (Hafızada tutmak için) ---
+# --- 1. Yardımcı Fonksiyon: RAG Çekirdeği (Zincirsiz) ---
 @st.cache_resource
-def setup_rag_chain():
-    # API Anahtar Kontrolü (Streamlit Secrets'ı kullanmak en güvenli yoldur)
+def setup_rag_core():
+    # API Anahtar Kontrolü
     if "GEMINI_API_KEY" not in os.environ:
-        st.error("❌ HATA: GEMINI_API_KEY ortam değişkeni veya Streamlit Secret ayarlanmadı. Lütfen ayarlayın.")
-        return None
+        st.error("❌ HATA: GEMINI_API_KEY ayarlanmadı. Lütfen Secrets kısmını kontrol edin.")
+        return None, None
 
     # Modelleri başlat
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
     embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004")
-
-    # Veri Yükleme ve Vektör Veritabanı (Çözüm Mimariniz)
+    
+    # Veri Yükleme ve Vektör Veritabanı
     file_path = "3000 Yemek Tarifi.txt"
     try:
         loader = TextLoader(file_path, encoding='utf-8')
         documents = loader.load()
-
+        
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1500,
             chunk_overlap=100,
@@ -39,55 +34,66 @@ def setup_rag_chain():
         )
         chunks = text_splitter.split_documents(documents)
 
+        # ChromaDB'yi oluştur
         vector_store = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings
         )
         retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-
-        # Prompt Şablonu
-        system_prompt = (
-            "Sen harika bir 3000 Yemek Tarifleri Asistanısın. Yalnızca aşağıdaki 'context' "
-            "içindeki bilgilere dayanarak kullanıcının tarif ve malzeme sorularını Türkçe yanıtla. "
-            "Cevabında tarifi net ve adım adım açıkla. "
-            "Eğer tarif mevcut değilse, 'Elimde bu tarife ait bilgi bulunmuyor.' şeklinde kibarca cevap ver."
-            "\n\nContext: {context}"
-        )
-        qa_prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("human", "{input}"),
-        ])
-
-        document_chain = create_stuff_documents_chain(llm, qa_prompt)
-        rag_chain = create_retrieval_chain(retriever, document_chain)
-
-        return rag_chain
+        
+        return llm, retriever
 
     except FileNotFoundError:
-        st.error(f"❌ HATA: '{file_path}' dosyası bulunamadı. Lütfen Streamlit uygulamasının yanına koyun.")
-        return None
+        st.error(f"❌ HATA: '{file_path}' dosyası bulunamadı.")
+        return None, None
     except Exception as e:
-        st.error(f"❌ HATA: RAG zinciri başlatılamadı: {e}")
-        return None
+        st.error(f"❌ HATA: Veri altyapısı kurulurken sorun oluştu: {e}")
+        return None, None
 
-# --- 2. Streamlit Uygulaması ---
-st.set_page_config(page_title="3000 Yemek Tarifi Chatbotu (GenAI Projesi)", layout="wide")
+# --- 2. Cevap Üretim Fonksiyonu (Generation) ---
+def generate_response(llm, retriever, prompt):
+    # 1. Retrieval (Alım): İlgili dokümanları çek
+    retrieved_docs = retriever.invoke(prompt)
+    
+    # Doküman içeriğini birleştir
+    context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+
+    # 2. Generation (Üretim): Prompt'u oluştur
+    system_prompt_template = textwrap.dedent("""
+        Sen harika bir 3000 Yemek Tarifleri Asistanısın. Yalnızca aşağıdaki 'context' 
+        içindeki bilgilere dayanarak kullanıcının tarif ve malzeme sorularını Türkçe yanıtla. 
+        Cevabında tarifi net ve adım adım açıkla. 
+        Eğer tarif mevcut değilse, 'Elimde bu tarife ait bilgi bulunmuyor.' şeklinde kibarca cevap ver.
+        
+        Context: 
+        {context}
+    """)
+    
+    # Gemini modeline gönderilecek nihai prompt
+    final_prompt = system_prompt_template.format(context=context) + f"\n\nKullanıcı Sorgusu: {prompt}"
+
+    # 3. Modelden cevabı al
+    try:
+        response = llm.invoke(final_prompt)
+        return response.content
+    except Exception as e:
+        return f"Üzgünüm, Gemini API çağrısı sırasında bir hata oluştu: {e}"
+
+# --- 3. Streamlit Uygulaması ---
+st.set_page_config(page_title="3000 Yemek Tarifi Chatbotu (Final Projesi)", layout="wide")
 st.title("👨‍🍳 3000 Yemek Tarifi Chatbotu")
 st.caption("RAG mimarisi ile 3000 tarife anında ulaşın. (Gemini API + LangChain)")
 
-rag_chain = setup_rag_chain()
+llm, retriever = setup_rag_core()
 
-if rag_chain:
-    # Sohbet geçmişini başlat
+if llm and retriever:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Geçmiş mesajları görüntüle
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Kullanıcıdan girdi al ve RAG'ı çalıştır
     if prompt := st.chat_input("Hangi yemeğin tarifini istersiniz?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -95,15 +101,7 @@ if rag_chain:
 
         with st.chat_message("assistant"):
             with st.spinner("Tarif aranıyor..."):
-                try:
-                    response = rag_chain.invoke({"input": prompt})
-                    full_response = response['answer']
-                    st.markdown(full_response)
-                except Exception as e:
-                    full_response = "Üzgünüm, bir hata oluştu. Lütfen Gemini API anahtarınızı kontrol edin."
-                    st.markdown(full_response)
-
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
-
+                full_response = generate_response(llm, retriever, prompt)
+                st.markdown(full_response)
         
-
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
