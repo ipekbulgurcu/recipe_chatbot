@@ -1,7 +1,8 @@
 streamlit
-google-generativeai
 langchain
-langchain-core  # Temel çekirdek
+langchain-core
 langchain-community
+langchain-google-genai
+google-generativeai
 chromadb
 tiktoken
