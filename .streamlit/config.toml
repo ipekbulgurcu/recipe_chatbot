@@ -1,0 +1,5 @@
+# .streamlit/config.toml
+[server]
+# Bu, Streamlit'in dosya izleme sisteminin yolunu değiştirmesini engeller,
+# böylece inotify hatasının önüne geçer.
+headless = true
