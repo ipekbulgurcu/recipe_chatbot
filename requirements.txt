@@ -1,8 +1,10 @@
 streamlit
-langchain
-langchain-core
-langchain-community
-langchain-google-genai
+# LangChain V0.1 serisi
+langchain==0.1.20
+langchain-core==0.1.52
+langchain-community==0.0.38
+langchain-google-genai==0.0.12
+
 google-generativeai
 chromadb
 tiktoken
