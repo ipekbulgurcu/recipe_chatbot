@@ -1,0 +1,4 @@
+# packages.txt
+gcc
+g++
+build-essential
