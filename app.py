@@ -2,7 +2,7 @@ import os
 import streamlit as st
 import textwrap
 
-# ZİNCİRSİZ RAG İÇİN GEREKLİ MİNİMUM IMPORTLAR
+# V0.1 Sürümlerine Uygun Importlar
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import TextLoader 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -12,7 +12,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmb
 # --- 1. Yardımcı Fonksiyon: RAG Çekirdeği (Zincirsiz - Önceki Blok) ---
 @st.cache_resource
 def setup_rag_core():
-    # ... Bu fonksiyonun içi değişmeyecek, önceki mesajdaki gibi kalacak ...
+   
     if "GEMINI_API_KEY" not in os.environ:
         st.error("❌ HATA: GEMINI_API_KEY ayarlanmadı. Lütfen Secrets kısmını kontrol edin.")
         return None, None
@@ -92,3 +92,4 @@ if llm and retriever:
                 st.markdown(full_response)
         
         st.session_state.messages.append({"role": "assistant", "content": full_response})
+
