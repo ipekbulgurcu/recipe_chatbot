@@ -1,13 +1,19 @@
 import os
 import streamlit as st
-# LangChain bileşenleri
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+
+# LangChain V0.2.x yerine V0.3.x+ uyumluluğu için importları güncelliyoruz
+from langchain import globals  # Gerekli olabilir
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document  # Document sınıfı için
+
+# Google Modelleri
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+
+# Topluluk Bileşenleri (Bu, hatalı kısmı aşar)
+from langchain_community.document_loaders import TextLoader 
+from langchain_community.vectorstores import Chroma
 
 # --- 1. Yardımcı Fonksiyon: RAG Zincirini Başlatma (Hafızada tutmak için) ---
 @st.cache_resource
@@ -99,4 +105,5 @@ if rag_chain:
                     st.markdown(full_response)
 
         st.session_state.messages.append({"role": "assistant", "content": full_response})
+
         
