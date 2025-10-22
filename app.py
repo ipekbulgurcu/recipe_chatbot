@@ -1,17 +1,16 @@
 import os
 import streamlit as st
 
-# LangChain V0.2.x yerine V0.3.x+ uyumluluğu için importları güncelliyoruz
-from langchain import globals  # Gerekli olabilir
+# LangChain Çekirdek Bileşenleri
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.documents import Document  # Document sınıfı için
+# from langchain_core.documents import Document # Gerekli değil, Document Loader halleder
 
 # Google Modelleri
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-# Topluluk Bileşenleri (Bu, hatalı kısmı aşar)
+# Topluluk Bileşenleri
 from langchain_community.document_loaders import TextLoader 
 from langchain_community.vectorstores import Chroma
 
@@ -107,3 +106,4 @@ if rag_chain:
         st.session_state.messages.append({"role": "assistant", "content": full_response})
 
         
+
